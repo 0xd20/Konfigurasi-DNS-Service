@@ -1,0 +1,153 @@
+################ INSTALASI DNS ##################### 
+
+# apt install bind9 -y
+# systemctl start bind9
+# systemctl enabled bind9
+# cd /etc/bind/
+# vim named.conf.local
+
+zone "idn.cloud" IN {
+        type master;
+        file "/etc/bind/idn.cloud.forward";
+        allow-update {none;};
+};
+
+zone "1.23.10.in-addr.arpa" IN {
+        type master;
+        file "/etc/bind/idn.cloud.reverse";
+        allow-update {none;};
+};
+
+# cp db.127 idn.cloud.reverse
+# cp db.local idn.cloud.forward
+# vim idn.cloud.forward
+
+;
+; BIND data file for local loopback interface
+;
+$TTL    604800
+@       IN      SOA     idn.cloud. root.idn.cloud. (
+                              2         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+@       IN      NS      ns1.idn.cloud.
+ns1     IN      A       10.23.1.250
+@       IN      A       10.23.1.250
+www     IN      A       10.23.2.24
+blog    IN      A       10.23.2.24
+hextris IN      A       10.23.2.24
+
+# vim idn.cloud.reverse
+
+;
+; BIND reverse data file for local loopback interface
+;
+$TTL    604800
+@       IN      SOA     idn.cloud. root.idn.cloud. (
+                              1         ; Serial
+                         604800         ; Refresh
+                          86400         ; Retry
+                        2419200         ; Expire
+                         604800 )       ; Negative Cache TTL
+;
+@       IN      NS      ns1.idn.cloud.
+250     IN      PTR     ns1.idn.cloud.
+250     IN      PTR     idn.cloud.
+24      IN      PTR     www.idn.cloud.
+24      IN      PTR     blog.idn.cloud.
+24      IN      PTR     hextris.idn.cloud.
+
+# named-checkzone idn.cloud idn.cloud.forward
+zone idn.cloud/IN: loaded serial 2
+OK
+# named-checkzone 10.23.1.250 idn.cloud.reverse
+zone 10.23.1.250/IN: loaded serial 1
+OK
+# systemctl restart bind9
+# vim /etc/resolv.conf
+tambahkan domain dan ip dns
+
+search idn.cloud
+nameserver 10.23.1.250
+nameserver 8.8.8.8
+
+#nameserver 127.0.0.53
+#options edns0 trust-ad
+
+# root@dns01-deni:/etc/bind# nslookup idn.cloud
+Server:         10.23.1.250
+Address:        10.23.1.250#53
+
+Name:   idn.cloud
+Address: 10.23.1.250
+# root@dns01-deni:/etc/bind# nslookup 10.23.1.250
+250.1.23.10.in-addr.arpa        name = idn.cloud.
+250.1.23.10.in-addr.arpa        name = ns1.idn.cloud.
+
+- Replication zone master slave dns
+
+di server 1
+
+# vim /etc/named.conf.local
+
+tambahkan allow transfer dan juga also notify
+
+zone "idn.cloud" IN {
+        type master;
+        file "/etc/bind/idn.cloud.forward";
+        allow-update {none;};
+        allow-transfer {10.23.1.50;}; (ip server 2) atau ip dns slave
+        also-notify {10.23.1.50;}; (ip server 2)  atau ip dns slave
+};
+
+zone "1.23.10.in-addr.arpa" IN {
+        type master;
+        file "/etc/bind/idn.cloud.reverse";
+        allow-update {none;};
+        allow-transfer {10.23.1.50;}; ip server 2  atau ip dns slave
+        also-notify {10.23.1.50;}; ip server 2  atau ip dns slave
+};
+
+# systemctl restart bind9
+
+di server 2
+
+# apt install bind9
+# vim /etc/bind/named.conf.local
+
+zone "idn.cloud" IN {
+        type slave;
+        file "/etc/bind/idn.cloud.forward.slave";
+        masters {10.23.1.250;}; ip server master
+};
+
+zone "1.23.10.in-addr.arpa" In {
+        type slave;
+        file "/etc/bind/idn.cloud.reverse.slave";
+        masters {10.23.1.250;}; ip server master
+};
+
+# systemctl restart bind 9
+^[[0;1;32m●^[[0m named.service - BIND Domain Name Server
+     Loaded: loaded (/lib/systemd/system/named.service; enabled; vendor preset: enabled)
+     Active: ^[[0;1;32mactive (running)^[[0m since Sun 2022-11-20 09:02:55 UTC; 3s ago
+       Docs: man:named(8)
+   Main PID: 87895 (named)
+      Tasks: 8 (limit: 3480)
+     Memory: 19.4M
+     CGroup: /system.slice/named.service
+             └─87895 /usr/sbin/named -f -u bind
+
+Nov 20 09:02:56 ubuntu02 named[87895]: ^[[0;1;31m^[[0;1;39m^[[0;1;31mdumping master file: /etc/bind/tmp-vznXNKWtHu: open: permission denied^[[0m
+Nov 20 09:02:56 ubuntu02 named[87895]: managed-keys-zone: Key 20326 for zone . is now trusted (acceptance timer complete)
+Nov 20 09:02:56 ubuntu02 named[87895]: resolver priming query complete
+Nov 20 09:02:56 ubuntu02 named[87895]: zone 1.23.10.in-addr.arpa/IN: Transfer started.
+Nov 20 09:02:56 ubuntu02 named[87895]: transfer of '1.23.10.in-addr.arpa/IN' from 10.23.1.250#53: connected using 10.23.1.50#53313
+Nov 20 09:02:56 ubuntu02 named[87895]: zone 1.23.10.in-addr.arpa/IN: transferred serial 1
+Nov 20 09:02:56 ubuntu02 named[87895]: transfer of '1.23.10.in-addr.arpa/IN' from 10.23.1.250#53: Transfer status: success # indikator ini harus sukses
+Nov 20 09:02:56 ubuntu02 named[87895]: transfer of '1.23.10.in-addr.arpa/IN' from 10.23.1.250#53: Transfer completed: 1 messages, 10 records, 268 bytes, 0.004 secs (67000 bytes/sec)
+
+# matikan server master dan coba nslookup di server 2
