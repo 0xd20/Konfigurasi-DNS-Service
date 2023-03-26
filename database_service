@@ -1,0 +1,169 @@
+######## Install Mariadb Server ########
+
+# Install mariadb-server
+$ apt install mariadb-server -y
+
+# configure root password mariadb
+$ mysql_secure_installation
+
+# login mode interaktif mariadb
+$ mysql -u root -p
+
+######### Configure phpMyAdmin #########
+
+# install dependencies phpmyadmin
+$ apt install php php-zip php-json php-mbstring php-mysql
+
+# Download Packages phpmyadmin
+$ wget https://files.phpmyadmin.net/phpMyAdmin/5.2.0/phpMyAdmin-5.2.0-all-languages.zip
+
+# install unzip
+$ apt install unzip
+
+# extract file phpmyadmin zip
+$ unzip https://files.phpmyadmin.net/phpMyAdmin/5.2.0/phpMyAdmin-5.2.0-all-languages.zip
+
+# pindah folder & ganti nama
+$ mkdir /usr/share/phpmyadmin/tmp
+
+# ubah user owner & group owner  
+chown -R www-data:www-data /usr/share/phpmyadmin
+
+# ubah permission
+chmod 777 /usr/share/phpmyadmin/tmp
+
+# vim /etc/apache2/conf-available/phpmyadmin.conf 
+$Alias /phpmyadmin /usr/share/phpmyadmin
+Alias /phpMyAdmin /usr/share/phpmyadmin
+
+<Directory /usr/share/phpmyadmin/>
+   AddDefaultCharset UTF-8
+   <IfModule mod_authz_core.c>
+      <RequireAny>
+      Require all granted
+     </RequireAny>
+   </IfModule>
+</Directory>
+
+<Directory /usr/share/phpmyadmin/setup/>
+   <IfModule mod_authz_core.c>
+     <RequireAny>
+       Require all granted
+     </RequireAny>
+   </IfModule>
+</Directory>
+
+# aktifkan
+a2enconf phpmyadmin 
+
+# reload
+$ systemctl reload apache2
+
+######### Configure Galera Cluster (Replicate Database) #########
+
+# Atur FIle Host dimasing masing Server yang ingin dimasukan kedalam cluster galera
+
+#### Server 1
+$ vim /etc/hosts
+10.10.10.1 db-01-server
+10.10.10.2 db-02-server
+
+#### Server 2 
+$ vim /etc/hosts
+10.10.10.1 db-01-server
+10.10.10.2 db-02-server
+
+#### Server 1
+# Jika service mariadb sedang ruuning, di berhentikan sementara
+$ systemctl stop mariadb
+
+# nonaktifkan bind-addres di 50-server.cnf
+$ vim /etc/mysql/mariadb.conf.d/50-server.cnf
+
+#bind address 
+
+# configurasi mariadb
+$ vim /etc/mysql/mariadb.conf.d/50-galera.conf
+
+[mysqld]
+binlog_format=ROW
+default-storage-engine=innodb
+innodb_autoinc_lock_mode=2
+bind-address=10.10.10.1
+:wq
+# Galera Provider Configuration
+wsrep_on=ON
+wsrep_provider=/usr/lib/galera/libgalera_smm.so
+
+wsrep_cluster_name="dbcluster"
+wsrep_cluster_address="gcomm://10.10.10.1,10.10.10.2"
+
+wsrep_sst_method=rsync
+
+wsrep_node_address="10.10.10.1"
+wsrep_node_name="db-01-server"
+
+# enable galera
+$ galera_new_cluster
+
+# cek node available di cluster
+$  mysql -e "show status like 'wsrep_cluster_size'"
+
+#### Server 2
+
+#install mariadb
+$ apt install mariadb-server -y
+
+# nonaktifkan bind-addres di 50-server.cnf
+$ vim /etc/mysql/mariadb.conf.d/50-server.cnf
+
+#bind address 
+
+# nonaktifkan bind-addres di 50-server.cnf
+$ vim /etc/mysql/mariadb.conf.d/50-server.cnf
+
+#bind address 
+# configurasi mariadb
+$ vim /etc/mysql/mariadb.conf.d/50-galera.conf
+
+[mysqld]
+binlog_format=ROW
+default-storage-engine=innodb
+innodb_autoinc_lock_mode=2
+bind-address=10.10.10.2
+
+# Galera Provider Configuration
+wsrep_on=ON
+wsrep_provider=/usr/lib/galera/libgalera_smm.so
+
+wsrep_cluster_name="dbcluster"
+wsrep_cluster_address="gcomm://10.10.10.1,10.10.10.2"
+
+wsrep_sst_method=rsync
+
+wsrep_node_address="10.10.10.2"
+wsrep_node_name="db-02-serve      
+r"
+
+
+
+# restart
+$ systemctl restart mariadb
+
+# cek node available di cluster
+$  mysql -e "show status like 'wsrep_cluster_size'"
+
+# create database;
+$ mysql
+
+CREATE DATABASE dbpesan;
+CREATE TABLE dbpesan.pesan_singkat ( `id` INT NOT NULL AUTO_INCREMENT , `pesan` TEXT NOT NULL , PRIMARY KEY (`id`));
+INSERT INTO dbpesan.pesan_singkat (`id`, `pesan`) VALUES (1, 'pesan pertama');
+INSERT INTO dbpesan.pesan_singkat (`id`, `pesan`) VALUES (2, 'pesan kedua');
+INSERT INTO dbpesan.pesan_singkat (`id`, `pesan`) VALUES (3, 'pesan ketiga');
+ 
+Cek 
+
+SELECT * FROM dbpesan.pesan_singkat;
+
+
