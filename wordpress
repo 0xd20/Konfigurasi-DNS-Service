@@ -1,0 +1,39 @@
+CONTENT MANAGEMENT SYSTEM (CMS)	 WORDPRESS
+
+# Install Depedencies Wordpress
+$ apt install -y php php-{common,mysql,xml,xmlrpc,curl,gd,imagick,cli,dev,imap,mbstring,opcache,soap,zip,intl}
+
+# buat root password mariadb
+$ mysql_secure_installation
+
+# masuk ke mode interaktif mariadb
+$ mysql -u root -p
+$ CREATE USER 'wp_user'@'localhost' IDENTIFIED BY 'wp_user123';
+$ create database db_wordpress;
+$ GRANT ALL PRIVILEGES ON db_wordpress.* TO 'wp_user'@'localhost';
+$ flush privileges;
+$ exit
+
+# ubah info di 000-defautl.conf
+
+# download wordpress
+$ wget https://wordpress.org/latest.zip
+
+# extraxt
+$ unzip latest.zip
+
+# move
+$ mv wordpress/* /var/www/html/
+
+# change owner
+$ chown www-data:www-data -R /var/www/html
+
+# ubah permission
+$ chmod -R 755 /var/www/html
+
+$ systemctl restart apache2
+
+# akses 
+$ idnbisa.com/
+
+# masuk ke mode instalasi, pastikan memasukan db wordpres dan user yang sebelumnya dibuat, nanti jika berhasil akan di suruh untuk membuat file wp-config.php di /var/www/html, jika sudah membuat wp-config.php, restart apache dan jalankan lagi instalasi wordpress
